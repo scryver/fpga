@@ -113,7 +113,7 @@ def PixelGenerator(data, pixel_x, pixel_y, video_on, r, g, b, clk, rst):
     MAX_COLOR = r.max - 1
     red, green, blue, rnext, gnext, bnext = [Signal(intbv(0, min=r.min, max=r.max)) for _ in range(6)]
 
-    pixel_gen = PongPixelGenerator(video_on, pixel_x, pixel_y, rnext, gnext, bnext)
+    pixel_gen = PongPixelGenerator(data, video_on, pixel_x, pixel_y, rnext, gnext, bnext, clk, rst)
 
     @always(clk.posedge, rst.posedge)
     def logic():
