@@ -3,9 +3,11 @@
 __author__ = 'michiel'
 
 from random import randrange
+
 from myhdl import Signal, intbv, instance, StopSimulation, always, concat
+
 import fpga.interfaces.i2s as i2s
-from tests.test_utils import clocker, clockdiv, run_sim
+from fpga.tests.test_utils import clocker, clockdiv, run_sim
 from fpga.utils import create_std_logic
 
 
@@ -157,6 +159,7 @@ def test_serial_to_parallel():
         @always(sclk.negedge)
         def data_gen():
             sdata.next = randrange(2)
+            raise StopSimulation    # No asserts yet
 
         return s2p, clockgen, start_gen, data_gen
 

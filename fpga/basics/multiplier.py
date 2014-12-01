@@ -33,15 +33,20 @@ def Multiplier35Bit(a, b, p, clk, rst):
     :param rst:
     :return:
     """
+    A_MAX = len(a)
     MULTMAX = 18
+    MULT_MAX_VAL = 2 ** MULTMAX // 2
+
     M = 35 + 1
     MOUT = 2 * M
     MAX_IN = 2 ** M // 2
     MAX_LOW = 2 ** (M - 2)
-    MAX_OUT = 2 ** MOUT // 2
+    MAX_OUT = 2 ** (MOUT - 2) // 2
+
+    a_upper, b_upper, a_lower, b_lower, au_buf, bu_buf, al_buf, bl_buf = [Signal(intbv(0, min=-MULT_MAX_VAL, max=MULT_MAX_VAL)) for _ in range(8)]
 
     mult1, mult3, mult4, bufm1, bufm11, bufm3, bufm4, bufm34 = [Signal(intbv(0, min=-MAX_IN, max=MAX_IN)) for _ in range(8)]
-    addLow = Signal(intbv(0, min=-MAX_IN * 2, max=MAX_IN*2))
+    addLow = Signal(intbv(0, min=-MAX_IN, max=MAX_IN))
     mult2, bufm2, bufm22 = [Signal(intbv(0, min=0, max=MAX_LOW)) for _ in range(3)]
     adder, bufout = [Signal(intbv(0, min=-MAX_OUT, max=MAX_OUT)) for _ in range(2)]
 
@@ -56,6 +61,10 @@ def Multiplier35Bit(a, b, p, clk, rst):
             bufm4.next = 0
             bufm34.next = 0
             bufout.next = 0
+            au_buf.next = 0
+            bu_buf.next = 0
+            al_buf.next = 0
+            bl_buf.next = 0
         else:
             bufm1.next = mult1
             bufm11.next = bufm1
@@ -63,27 +72,35 @@ def Multiplier35Bit(a, b, p, clk, rst):
             bufm22.next = bufm2
             bufm3.next = mult3
             bufm4.next = mult4
-            bufm34.next = addLow[35:].signed()
+            bufm34.next = addLow
             bufout.next = adder
+            au_buf.next = a_upper
+            bu_buf.next = b_upper
+            al_buf.next = a_lower
+            bl_buf.next = b_lower
 
     @always_comb
     def comb_logic():
+        a_upper.next = a[A_MAX:A_MAX - MULTMAX].signed()
+        a_lower.next = concat(False, a[A_MAX - MULTMAX:])
+        b_upper.next = b[A_MAX:A_MAX - MULTMAX].signed()
+        b_lower.next = concat(False, b[A_MAX - MULTMAX:])
         p.next = bufout
 
     @always_comb
     def adders():
         addLow.next = (bufm3 + bufm4)
-        x = (bufm11 << 34) + bufm22
-        y = (bufm34 << 17)
+        x = (bufm11 << (A_MAX - 1)) + concat(False, bufm22)
+        y = (bufm34 << (A_MAX - MULTMAX))
 
         adder.next = int(x) + int(y)
 
     @always_comb
     def multipliers():
-        mult1.next = a[35:17] * b[35:17]
-        mult2.next = concat(False, a[17:]) * concat(False, b[17:])
-        mult3.next = a[35:17] * concat(False, b[17:])
-        mult4.next = concat(False, a[17:]) * b[35:17]
+        mult1.next = au_buf * bu_buf
+        mult2.next = al_buf[:] * bl_buf[:]
+        mult3.next = au_buf * bl_buf
+        mult4.next = al_buf * bu_buf
 
     return clocked_logic, comb_logic, adders, multipliers
 

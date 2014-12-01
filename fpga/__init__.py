@@ -4,6 +4,7 @@ __author__ = 'michiel'
 
 from myhdl.conversion._toVHDL import _ToVHDLConvertor
 
+
 class CustomVHDL(_ToVHDLConvertor):
 
     def __init__(self):

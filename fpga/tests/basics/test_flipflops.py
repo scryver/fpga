@@ -2,10 +2,12 @@
 
 __author__ = 'michiel'
 
-from myhdl import Signal, always, delay, traceSignals, Simulation, StopSimulation, instance, intbv
 from random import randrange
+
+from myhdl import Signal, always, delay, instance, intbv
+
 import fpga.basics.flipflops as ff
-from tests.test_utils import clocker, run_sim
+from fpga.tests.test_utils import clocker, run_sim
 
 
 def test_dff(time_steps=2000, trace=False):

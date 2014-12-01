@@ -3,9 +3,11 @@
 __author__ = 'michiel'
 
 import random
+
+from myhdl import Signal, instance, StopSimulation, intbv
+
 import fpga.encoders.biphasemark as biphasemark
-from myhdl import Signal, always, instance, delay, StopSimulation, Simulation, traceSignals, intbv
-from tests.test_utils import clocker, run_sim
+from fpga.tests.test_utils import clocker, run_sim
 
 
 def benchEncoder(tests=1000):

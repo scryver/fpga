@@ -5,6 +5,7 @@ from fpga import toVHDL
 
 __author__ = 'michiel'
 
+# For xilinx no async! (better performance)
 
 
 def OnePortRamAsyncRead(we, addr, din, dout, clk):
@@ -43,10 +44,27 @@ def OnePortRamSyncRead(we, addr, din, dout, clk):
 
     return write, read
 
+def OnePortRomSyncRead(addr, dout, clk, ROM_DATA):
+
+    ADDR_WIDTH = len(addr)
+
+    rombuf = tuple([int(ROM_DATA[i]) for i in range(len(ROM_DATA))])
+    addr_reg = Signal(intbv(0)[ADDR_WIDTH:])
+
+    @always(clk.posedge)
+    def addr_write():
+        addr_reg.next = addr
+
+    @always_comb
+    def read():
+        dout.next = rombuf[addr_reg]
+
+    return addr_write, read
+
 def convert():
     we, clk = [Signal(False) for _ in range(2)]
     addr = Signal(intbv(0, min=0, max=256))
     din, dout = [Signal(intbv(0, min=-64, max=64)) for _ in range(2)]
-    toVHDL(OnePortRamAsyncRead, we, addr, din, dout, clk)
+    toVHDL(OnePortRamSyncRead, we, addr, din, dout, clk)
 
-# convert()
+convert()

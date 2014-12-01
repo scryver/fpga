@@ -3,8 +3,9 @@
 __author__ = 'michiel'
 
 from myhdl import Signal, intbv, instance, StopSimulation
+
 import fpga.basics.parallel2serial as p2s
-from tests.test_utils import clocker, run_sim
+from fpga.tests.test_utils import clocker, run_sim
 
 
 def test_p2s():
