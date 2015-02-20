@@ -39,8 +39,18 @@ def create_signals(nr_signals, bits=1, signed=False, enum=None, mod=False, delay
         else:
             return [Signal(enum) for _ in range(nr_signals)]
 
+    def modOrInt(min, max, mod):
+        if mod:
+            return modbv(0, min=min, max=max)
+        else:
+            return intbv(0, min=min, max=max)
+
     if bits == 1:
         default = False
+    elif isinstance(bits, (tuple, list)):
+        mini = bits[0]
+        maxi = bits[1]
+        default = modOrInt(mini, maxi, mod)
     else:
         if signed:
             mini = -(2 ** (bits - 1))
@@ -48,11 +58,7 @@ def create_signals(nr_signals, bits=1, signed=False, enum=None, mod=False, delay
         else:
             mini = 0
             maxi = 2 ** bits
-
-        if mod:
-            default = modbv(0, min=mini, max=maxi)
-        else:
-            default = intbv(0, min=mini, max=maxi)
+        default = modOrInt(mini, maxi, mod)
 
     if delay is not None:
         if nr_signals > 1:
