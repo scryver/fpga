@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from myhdl import Signal, always, intbv, always_comb
+from myhdl import Signal, always, intbv, always_comb, always_seq
 from fpga import toVHDL
 
 __author__ = 'michiel'
@@ -14,33 +14,39 @@ def OnePortRamAsyncRead(we, addr, din, dout, clk):
 
     ram = [Signal(intbv(0, dout.min, dout.max)) for _ in range(2 ** ADDR_WIDTH)]
 
-    @always(clk.posedge)
+    @always_seq(clk.posedge, reset=None)
     def write():
         if we:
-            ram[addr].next = din
+            # Note how we use the val attribute of the din signal, as we don't want to store
+            # the signal object itself, but its current value. Similarly, we use the val
+            # attribute of the addr signal as the dictionary key.
+            ram[addr.val].next = din.val
 
     @always_comb
     def read():
-        dout.next = ram[addr]
+        dout.next = ram[addr.val]
 
     return write, read
 
 def OnePortRamSyncRead(we, addr, din, dout, clk):
 
+    def init_ram():
+        return [Signal(intbv(0, dout.min, dout.max)) for _ in range(2 ** ADDR_WIDTH)]
+
     ADDR_WIDTH = len(addr)
 
-    ram = [Signal(intbv(0, dout.min, dout.max)) for _ in range(2 ** ADDR_WIDTH)]
+    ram = init_ram()
     addr_reg = Signal(intbv(0)[ADDR_WIDTH:])
 
-    @always(clk.posedge)
+    @always_seq(clk.posedge, reset=None)
     def write():
         if we:
-            ram[addr].next = din
-        addr_reg.next = addr
+            ram[addr.val].next = din.val
+        addr_reg.next = addr.val
 
     @always_comb
     def read():
-        dout.next = ram[addr_reg]
+        dout.next = ram[addr_reg.val]
 
     return write, read
 
@@ -51,20 +57,42 @@ def OnePortRomSyncRead(addr, dout, clk, ROM_DATA):
     rombuf = tuple([int(ROM_DATA[i]) for i in range(len(ROM_DATA))])
     addr_reg = Signal(intbv(0)[ADDR_WIDTH:])
 
-    @always(clk.posedge)
+    @always_seq(clk.posedge, reset=None)
     def addr_write():
-        addr_reg.next = addr
+        addr_reg.next = addr.val
 
     @always_comb
     def read():
-        dout.next = rombuf[addr_reg]
+        dout.next = rombuf[addr_reg.val]
 
     return addr_write, read
 
+def ShiftRegister(din, ce, dout, clk, length=8):
+
+    ram = [Signal(intbv(0, dout.min, dout.max)) for _ in range(length)]
+
+    @always_seq(clk.posedge, reset=None)
+    def shift():
+        if ce:
+            for i in range(length):
+                if i == 0:
+                    ram[i].next = din
+                else:
+                    ram[i].next = ram[i - 1]
+
+    @always_comb
+    def logic():
+        dout.next = ram[length - 1]
+
+    return shift, logic
+
+
+
 def convert():
     we, clk = [Signal(False) for _ in range(2)]
-    addr = Signal(intbv(0, min=0, max=256))
+    # addr = Signal(intbv(0, min=0, max=256))
     din, dout = [Signal(intbv(0, min=-64, max=64)) for _ in range(2)]
-    toVHDL(OnePortRamSyncRead, we, addr, din, dout, clk)
+    toVHDL(ShiftRegister, din, we, dout, clk)
 
-convert()
+if __name__ == '__main__':
+    convert()
