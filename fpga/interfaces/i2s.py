@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-from fpga.utils import create_std_logic
 
 __author__ = 'michiel'
 
-
-from myhdl import Signal, intbv, always, always_comb, concat, toVHDL
 import fpga.basics.flipflops as ff
+
+from myhdl import intbv, always, always_comb, concat
+from fpga.utils import create_signals
 
 
 def WordSelect(ws, wsd, nwsd, wsp, sclk):
@@ -19,7 +19,7 @@ def WordSelect(ws, wsd, nwsd, wsp, sclk):
     :return:
     """
 
-    wsdd = Signal(False)
+    wsdd = create_signals(1)
 
     @always(sclk.posedge)
     def logic():
@@ -37,17 +37,27 @@ def WordSelect(ws, wsd, nwsd, wsp, sclk):
 
 def ShiftRegister(parallel_in, d, load, sdata, sclk, reset):
 
-    buf = Signal(intbv(0, min=parallel_in.min, max=parallel_in.max))
+    buf = create_signals(1, (parallel_in.min, parallel_in.max))
     M = len(parallel_in)
 
-    @always(sclk.negedge)
-    def logic():
-        if reset:
-            buf.next = 0
-        elif load:
-            buf.next = parallel_in
-        else:
-            buf.next = concat(buf[M - 1:0], d)
+    if parallel_in.min < 0:
+        @always(sclk.negedge)
+        def logic():
+            if reset:
+                buf.next = 0
+            elif load:
+                buf.next = parallel_in
+            else:
+                buf.next = concat(buf[M - 1:0], d).signed()
+    else:
+        @always(sclk.negedge)
+        def logic():
+            if reset:
+                buf.next = 0
+            elif load:
+                buf.next = parallel_in
+            else:
+                buf.next = concat(buf[M - 1:0], d)
 
     @always_comb
     def output_logic():
@@ -58,7 +68,7 @@ def ShiftRegister(parallel_in, d, load, sdata, sclk, reset):
 
 def DataBuffer(parallel_in, load, wait, output_enable, dout, sclk, reset):
 
-    buf = Signal(intbv(0, min=parallel_in.min, max=parallel_in.max))
+    buf = create_signals(1, (parallel_in.min, parallel_in.max))
 
     @always(sclk.posedge)
     def logic():
@@ -81,27 +91,38 @@ def Serial2Parallel(sdata, start, dout, sclk):
 
     M = len(dout)
     assert M > 2
-    buf = [Signal(False) for _ in range(M)]
-    en = [Signal(False) for _ in range(M - 1)]
+    buf = create_signals(M)
+    en = create_signals(M - 1)
 
     shift_msb = ff.dff_set(en[M - 2], False, start, sclk)
     buf_msb = ff.dffe(buf[M - 1], sdata, start, sclk)
 
-    shifts = [ff.dff_reset(en[M - 3 - i], en[M - 2 - i], sclk, start) for i in range(M - 2)]
-    bufs = [ff.dffe_rst(buf[M - 2 - i], sdata, en[M - 2 - i], sclk, start) for i in range(M - 1)]
+    shifts = [ff.dff_reset(en[M - 3 - i], en[M - 2 - i], sclk, start)
+              for i in range(M - 2)]
+    bufs = [ff.dffe_rst(buf[M - 2 - i], sdata, en[M - 2 - i], sclk, start)
+            for i in range(M - 1)]
 
-    @always(sclk.posedge)
-    def logic():
-        if start:
-            t = intbv(0, _nrbits=M)
-            for i in range(M):
-                t[i] = buf[i]
-            dout.next = t
+    if dout.min < 0:
+        @always(sclk.posedge)
+        def logic():
+            if start:
+                t = intbv(0, _nrbits=M)
+                for i in range(M):
+                    t[i] = buf[i]
+                dout.next = t.signed()
+    else:
+        @always(sclk.posedge)
+        def logic():
+            if start:
+                t = intbv(0, _nrbits=M)
+                for i in range(M):
+                    t[i] = buf[i]
+                dout.next = t
 
     return shift_msb, shifts, buf_msb, bufs, logic
 
 
-def Transmitter(left, right, load_left, load_right, sdata, ws, sclk, reset):
+def I2S_Transmitter(left, right, load_left, load_right, sdata, ws, sclk, reset):
     """
     I2S Transmitter. Left and right data is multiplexed by ws. Ws= 0 means left.
     Sdata will be changed on negedge of sclk.
@@ -116,14 +137,12 @@ def Transmitter(left, right, load_left, load_right, sdata, ws, sclk, reset):
     :param reset:       Reset input
     :return:
     """
-
-    left_buf = Signal(intbv(0, min=left.min, max=left.max))
-    right_buf = Signal(intbv(0, min=left.min, max=left.max))
-    left_right = Signal(intbv(0, min=left.min, max=left.max))
-    wsd, nwsd, wsp = create_std_logic(3)
+    left_buf, right_buf, left_right = create_signals(3, (left.min, left.max))
+    wsd, nwsd, wsp = create_signals(3)
 
     left_buffer = DataBuffer(left, load_left, wsp, nwsd, left_buf, sclk, reset)
-    right_buffer = DataBuffer(right, load_right, wsp, wsd, right_buf, sclk, reset)
+    right_buffer = DataBuffer(right, load_right, wsp, wsd, right_buf, sclk,
+                              reset)
     ws_select = WordSelect(ws, wsd, nwsd, wsp, sclk)
     shifter = ShiftRegister(left_right, False, wsp, sdata, sclk, reset)
 
@@ -134,11 +153,11 @@ def Transmitter(left, right, load_left, load_right, sdata, ws, sclk, reset):
     return left_buffer, right_buffer, ws_select, shifter, buffed_or
 
 
-def Receiver(sdata, ws, left, right, left_ready, right_ready, sclk, reset):
+def I2S_Receiver(sdata, ws, left, right, left_ready, right_ready, sclk, reset):
 
-    buf = Signal(intbv(0, min=left.min, max=left.max))
+    buf = create_signals(1, (left.min, left.max))
 
-    wsd, nwsd, wsp = create_std_logic(3)
+    wsd, nwsd, wsp = create_signals(3)
     ws_select = WordSelect(ws, wsd, nwsd, wsp, sclk)
 
     s2p = Serial2Parallel(sdata, wsp, buf, sclk)
@@ -160,17 +179,3 @@ def Receiver(sdata, ws, left, right, left_ready, right_ready, sclk, reset):
         right_ready.next = not (wsd and wsp)
 
     return ws_select, s2p, clocked_logic, logic
-
-
-def convert_transmitter():
-    left, right = [Signal(intbv(0)[32:]) for _ in range(2)]
-    load_left, load_right, sdata, ws, sclk, reset = create_std_logic(6)
-
-    toVHDL(Transmitter, left, right, load_left, load_right, sdata, ws, sclk, reset)
-
-
-def convert_receiver():
-    left, right = [Signal(intbv(0)[32:]) for _ in range(2)]
-    left_ready, right_ready, sdata, ws, sclk, reset = create_std_logic(6)
-
-    toVHDL(Receiver, sdata, ws, left, right, left_ready, right_ready, sclk, reset)

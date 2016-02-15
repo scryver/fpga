@@ -2,31 +2,25 @@
 
 __author__ = 'michiel'
 
-from myhdl import always, always_comb
-
-ACTIVE = False
-
-def dff(q, d, clk):
-
-    @always(clk.posedge)
-    def logic():
-        q.next = d
-
-    return logic
+from myhdl import always, always_comb, always_seq
 
 
-def dff_async(q, d, clk, rst):
+def dff(q, d, clk, rst=None):
+    """Async depends on reset signal, see fpga.utils.create_clock_reset() and
+    myhdl.ResetSignal.
 
-    if ACTIVE:
-        rst_edge = rst.posedge
+    D-FlipFlop with async or sync reset.
+    For Xilinx ram use, make sure to supply a synced-reset, it apparantly works
+    better."""
+    # TODO (michiel): insert app note here
+
+    if rst is not None:
+        @always_seq(clk.posedge, rst)
+        def logic():
+            q.next = d
     else:
-        rst_edge = rst.negedge
-
-    @always(clk.posedge, rst_edge)
-    def logic():
-        if rst == ACTIVE:
-            q.next = 0
-        else:
+        @always(clk.posedge)
+        def logic():
             q.next = d
 
     return logic
@@ -66,18 +60,6 @@ def dff_set(q, d, s, clk):
     def logic():
         if s:
             q.next = MAX
-        else:
-            q.next = d
-
-    return logic
-
-
-def dff_reset(q, d, clk, rst):
-
-    @always(clk.posedge)
-    def logic():
-        if rst:
-            q.next = 0
         else:
             q.next = d
 

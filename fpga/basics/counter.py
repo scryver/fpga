@@ -18,6 +18,7 @@ def ModCounter(count, clk, rst):
 
     return counting
 
+
 def ModStartStopCounter(count, startstop, clk, rst):
 
     assert isinstance(count._val, modbv)

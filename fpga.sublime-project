@@ -1,0 +1,14 @@
+{
+    "folders":
+    [
+        {
+            "path": "."
+        }
+    ],
+    "build_systems": [
+        {
+            "name": "Current file (fpga3)",
+            "cmd": ["/home/michiel/virtualenv/fpga3/bin/python", "-u", "${file}"]
+        }
+    ]
+}

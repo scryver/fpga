@@ -12,5 +12,6 @@ class CustomVHDL(_ToVHDLConvertor):
         self.library = "work"
         self.architecture = "ScryverDesign"
         self.numeric_ports = False
+        self.std_logic_ports = True
 
 toVHDL = CustomVHDL()

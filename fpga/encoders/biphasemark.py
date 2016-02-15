@@ -5,6 +5,7 @@ __author__ = 'michiel'
 from myhdl import Signal, instance, intbv, downrange, concat, always
 from fpga.utils import EdgeDetect
 
+
 def Encoder(din, dclk, dout, clock, reset):
 
     pos_edge = Signal(False)
@@ -27,22 +28,24 @@ def Encoder(din, dclk, dout, clock, reset):
 
     return edge, process
 
-def Decoder(din, locked, dclk, dout, clock, reset):
 
-    MAX_CLK_MULT = 256
+def Decoder(din, locked, dclk, dout, clock, reset, max_cycles=256):
+
+    max_cycles = 256
 
     p_edge = Signal(False)
     n_edge = Signal(False)
     edge = EdgeDetect(din, p_edge, n_edge, clock, reset)
-    current_cycle = Signal(intbv(0, min=0, max=MAX_CLK_MULT))
-    prev_cycle = Signal(intbv(0, min=0, max=MAX_CLK_MULT))
-    min_cycle = Signal(intbv(MAX_CLK_MULT - 1, min=0, max=MAX_CLK_MULT))
-    edge_counter = EdgeCounter(din, locked, min_cycle, current_cycle, prev_cycle, clock, reset)
-    # max_cycle = Signal(intbv(0, min=0, max=MAX_CLK_MULT))
+    current_cycle = Signal(intbv(0, min=0, max=max_cycles))
+    prev_cycle = Signal(intbv(0, min=0, max=max_cycles))
+    min_cycle = Signal(intbv(max_cycles - 1, min=0, max=max_cycles))
+    edge_counter = EdgeCounter(din, locked, min_cycle, current_cycle,
+                               prev_cycle, clock, reset)
+    # max_cycle = Signal(intbv(0, min=0, max=max_cycles))
 
     @instance
     def clock_counter():
-        count = intbv(0, min=0, max=MAX_CLK_MULT / 2)
+        count = intbv(0, min=0, max=max_cycles / 2)
         while True:
             yield clock.posedge, reset.posedge
 
@@ -54,7 +57,7 @@ def Decoder(din, locked, dclk, dout, clock, reset):
                     count[:] = 0
                     dclk.next = not dclk
 
-                if count == MAX_CLK_MULT / 2 - 1:
+                if count == max_cycles / 2 - 1:
                     count[:] = 0
                 else:
                     count += 1
@@ -62,25 +65,28 @@ def Decoder(din, locked, dclk, dout, clock, reset):
     @instance
     def compare():
         half_one = False
-        # min_cycle = intbv(0, min=0, max=MAX_CLK_MULT)
-        max_cycle = intbv(0, min=0, max=MAX_CLK_MULT)
-        prev_min  = intbv(0, min=0, max=MAX_CLK_MULT)
-        prev_max  = intbv(0, min=0, max=MAX_CLK_MULT)
+        # min_cycle = intbv(0, min=0, max=max_cycles)
+        # max_cycle = intbv(0, min=0, max=max_cycles)
+        prev_min = intbv(0, min=0, max=max_cycles)
+        prev_max = intbv(0, min=0, max=max_cycles)
 
         while True:
             yield clock.posedge, reset.posedge
 
             if reset:
                 half_one = False
-                max_cycle[:] = 0
+                # max_cycle[:] = 0
                 prev_min[:] = 0
                 prev_max[:] = 0
                 dout.next = False
             else:
-                prev_min[:] = prev_cycle - (prev_cycle >> 2)    # 0.75 = 1 - 0.25 = x - rshift(2)
-                prev_max[:] = prev_cycle + (prev_cycle >> 1)    #  1.5 = 1 + 0.5  = x + rshift(1)
+                # 0.75 = 1 - 0.25 = x - rshift(2)
+                prev_min[:] = prev_cycle - (prev_cycle >> 2)
+                #  1.5 = 1 + 0.5  = x + rshift(1)
+                prev_max[:] = prev_cycle + (prev_cycle >> 1)
 
-                if (prev_min <= current_cycle <= prev_max) or current_cycle == 0 or prev_cycle == 0:
+                if (prev_min <= current_cycle <= prev_max) \
+                        or current_cycle == 0 or prev_cycle == 0:
                     if locked:
                         if half_one:
                             dout.next = True
@@ -90,16 +96,26 @@ def Decoder(din, locked, dclk, dout, clock, reset):
                         dout.next = False
                 elif current_cycle > prev_max:
                     dout.next = False
-                    max_cycle[:] = current_cycle
+                    # max_cycle[:] = current_cycle
                     half_one = False
                 elif current_cycle < prev_min:
-                    max_cycle[:] = prev_cycle
+                    # max_cycle[:] = prev_cycle
                     half_one = True
 
     return edge, edge_counter, clock_counter, compare
 
 
 def EdgeCounter(din, locked, minimum, current, prev, clock, reset):
+    """
+
+    :param din:     Input  | Serial input data, it will count edges from this data.
+    :param locked:  Output | Flag indicating that there is a lock to the input stream.
+    :param minimum: Output | Minimum amount of clk cycles in input stream
+    :param current: Output | Current amount of clk cycles in input stream
+    :param prev:    Output | Previous amount of clk cycles in input stream
+    :param clock:   Input  | The clock
+    :param reset:   Input  | Asynchronous reset
+    """
 
     MAX_CLK_MULT = current.max
 

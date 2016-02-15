@@ -2,7 +2,8 @@
 
 __author__ = 'michiel'
 
-from myhdl import intbv, concat, instance
+from myhdl import intbv, concat, instance, always_seq, always_comb
+from fpga.utils import create_signals
 
 
 def p2s_msb(din, load, dout, clock, reset):
@@ -21,28 +22,42 @@ def p2s_msb(din, load, dout, clock, reset):
 
     # MSB_FIRST = True
     M = len(din)
+    buf, nbuf = create_signals(2, (din.min, din.max))
 
-    @instance
+    @always_seq(clock.posedge, reset)
     def shift_reg():
-        buffer = intbv(0, min=din.min, max=din.max)
+        if load:
+            buf.next = din
+        else:
+            buf.next = nbuf
 
-        while True:
-            yield clock.posedge, reset.posedge
+    @always_comb
+    def input_logic():
+        dout.next = buf[M - 1]
+        nbuf.next = concat(buf[M - 1:0], False)
 
-            # if MSB_FIRST:
-            dout.next = buffer[M - 1]
-            # else:
-            #     dout.next = buffer[0]
+    # @instance
+    # def shift_reg():
+    #     buf = intbv(0, min=din.min, max=din.max)
 
-            if load:
-                buffer[:] = din
-            else:
-                # if MSB_FIRST:
-                buffer[:] = concat(buffer[M-1:0], False)
-                # else:
-                #     buffer[:] = concat(False, buffer[M:1])
+    #     while True:
+    #         yield clock.posedge, reset.posedge
 
-    return shift_reg
+    #         # if MSB_FIRST:
+    #         dout.next = buf[M - 1]
+    #         # else:
+    #         #     dout.next = buf[0]
+
+    #         if load:
+    #             buf[:] = din
+    #         else:
+    #             # if MSB_FIRST:
+    #             buf[:] = concat(buf[M-1:0], False)
+    #             # buf[:] = buf[M - 1:0] << 1
+    #             # else:
+    #             #     buf[:] = concat(False, buf[M:1])
+
+    return shift_reg, input_logic
 
 
 def p2s_lsb(din, load, dout, clock, reset):
@@ -63,16 +78,16 @@ def p2s_lsb(din, load, dout, clock, reset):
 
     @instance
     def shift_reg():
-        buffer = intbv(0, min=din.min, max=din.max)
+        buf = intbv(0, min=din.min, max=din.max)
 
         while True:
             yield clock.posedge, reset.posedge
 
-            dout.next = buffer[0]
+            dout.next = buf[0]
 
             if load:
-                buffer[:] = din
+                buf[:] = din
             else:
-                buffer[:] = concat(False, buffer[M:1])
+                buf[:] = concat(False, buf[M:1])
 
     return shift_reg

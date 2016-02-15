@@ -2,8 +2,8 @@
 
 __author__ = 'michiel'
 
-import pytest
+# import pytest
 
 
-if __name__ == '__main__':
-    pytest.main()
+# if __name__ == '__main__':
+#     pytest.main()
