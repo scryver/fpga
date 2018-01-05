@@ -1,11 +1,12 @@
 #!/usr/env/python
 
 from __future__ import print_function
-from myhdl import Signal, intbv, always
+from myhdl import block, Signal, intbv, always
 
 __author__ = 'michiel'
 
 
+@block
 def mux3(a, b, c, dout, sel, zero_start=True):
 
     if zero_start:
@@ -32,6 +33,7 @@ def mux3(a, b, c, dout, sel, zero_start=True):
     return logic
 
 
+@block
 def mux2(a, b, dout, sel):
 
     @always(a, b, sel)

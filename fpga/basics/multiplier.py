@@ -2,12 +2,13 @@
 
 __author__ = 'michiel'
 
-from myhdl import Signal, intbv, always, always_comb, concat, toVHDL
+from myhdl import block, Signal, intbv, always, always_comb, concat, toVHDL
 from fpga.utils import create_signals
 from .ram import ShiftRegister
 
 
-def Multiplier35Bit(a, b, p, clk, rst):
+@block
+def Multiplier35Bit(clk, rst, a, b, p):
 
     """
     Some text here (added buffers to input + one at the output => total delay = 5 clock cycles)
@@ -36,6 +37,7 @@ def Multiplier35Bit(a, b, p, clk, rst):
     :return:
     """
     A_MAX = len(a)
+    assert(A_MAX == 35)
     MULTMAX = 18
     MULT_MAX_VAL = 2 ** MULTMAX // 2
 
@@ -111,7 +113,8 @@ def Multiplier35Bit(a, b, p, clk, rst):
     return clocked_logic, comb_logic, adders, multipliers
 
 
-def AddressableMultiplier35Bit(a, b, p, address_in, address_out, ce, clk, rst):
+@block
+def AddressableMultiplier35Bit(clk, ce, rst, a, b, p, address_in, address_out):
     assert address_in.min == address_out.min and \
         address_in.max == address_out.max
 
@@ -122,7 +125,8 @@ def AddressableMultiplier35Bit(a, b, p, address_in, address_out, ce, clk, rst):
     return address_shift, multiplier
 
 
-def SharedMultiplier(a_signals, b_signals, load, ce, clk, rst, p_signals, p_rdys):
+@block
+def SharedMultiplier(clk, ce, rst, a_signals, b_signals, load, p_signals, p_rdys):
     assert len(a_signals) == len(b_signals) == len(p_signals)
     assert load.max >= len(a_signals) + 1, "Make sure all signals can be loaded and one extra space for the empty load"
     assert len(a_signals[0]) == 35
@@ -167,6 +171,7 @@ def SharedMultiplier(a_signals, b_signals, load, ce, clk, rst, p_signals, p_rdys
     return mult_inst, load_data, clock_output, set_output
 
 
+@block
 def ThreePortMultiplier35Bit(a, b, c, d, e, f, load, clk_ena, clk, rst,
                              ab, ab_rdy, cd, cd_rdy, ef, ef_rdy):
     assert a._nrbits == b._nrbits == c._nrbits == d._nrbits == e._nrbits \

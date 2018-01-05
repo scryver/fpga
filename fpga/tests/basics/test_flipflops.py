@@ -28,13 +28,12 @@ def test_dff(time_steps=2000, trace=False):
     def bench():
         q, d, clock = create_signals(3)
 
-        # dff_inst = ff.dff(q, d, clock)
-        dff_inst = dff(q, d, clock)
+        dff_inst = ff.dff(clock, d, q)
         clock_gen = clocker(clock)
 
         @always(clock.negedge)
         def stimulus():
-            assert d == q
+            assert d.val == q.val, ("D ({}) != Q ({})".format(int(d), int(q)))
             d.next = randrange(2)
 
         return dff_inst, clock_gen, stimulus
@@ -48,7 +47,7 @@ def test_dff_reset(time_steps=2000, trace=False):
         p_rst = create_signals(1)
         clock, reset = create_clock_reset(rst_active=False, rst_async=True)
 
-        dffa_inst = ff.dff_reset(q, d, clock, reset)
+        dffa_inst = ff.dff(clock, d, q, reset=reset)
 
         clock_gen = clocker(clock)
 

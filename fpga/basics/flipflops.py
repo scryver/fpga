@@ -2,10 +2,11 @@
 
 __author__ = 'michiel'
 
-from myhdl import always, always_comb, always_seq
+from myhdl import block, always, always_comb, always_seq, ResetSignal
 
 
-def dff(q, d, clk, rst=None):
+@block
+def dff(clk, d, q, enable=True, reset=None, reset_active=1):
     """Async depends on reset signal, see fpga.utils.create_clock_reset() and
     myhdl.ResetSignal.
 
@@ -14,59 +15,59 @@ def dff(q, d, clk, rst=None):
     better."""
     # TODO (michiel): insert app note here
 
-    if rst is not None:
-        @always_seq(clk.posedge, rst)
-        def logic():
-            q.next = d
-    else:
-        @always(clk.posedge)
-        def logic():
-            q.next = d
-
-    return logic
-
-
-def dffe(q, d, enable, clk):
-
-    @always(clk.posedge)
-    def logic():
-        if enable:
-            q.next = d
-
-    return logic
-
-
-def dffe_rst(q, d, enable, clk, rst):
-
-    @always(clk.posedge)
-    def logic():
-        if rst:
-            q.next = 0
-        elif enable:
-            q.next = d
-
-    return logic
-
-
-def dff_set(q, d, s, clk):
-
-    try:
-        BITS = len(d)
-        MAX = 2 ** BITS - 1
-    except TypeError:
-        MAX = True
-
-    @always(clk.posedge)
-    def logic():
-        if s:
-            q.next = MAX
+    if isinstance(enable, bool):
+        assert enable, "Enable never True cannot be allowed!"
+        if reset is None or isinstance(reset, ResetSignal):
+            @always_seq(clk.posedge, reset)
+            def logic():
+                q.next = d
         else:
-            q.next = d
+            @always(clk.posedge)
+            def logic():
+                if reset == reset_active:
+                    q.next = 0
+                else:
+                    q.next = d
+    else:
+        if reset is None or isinstance(reset, ResetSignal):
+            @always_seq(clk.posedge, reset)
+            def logic():
+                if enable:
+                    q.next = d
+        else:
+            @always(clk.posedge)
+            def logic():
+                if reset == reset_active:
+                    q.next = 0
+                elif enable:
+                    q.next = d
 
     return logic
 
+#
+# @block
+# def dff_set(clk, s, d, q):
+#
+#     try:
+#         BITS = len(d)
+#         MAX = 2 ** BITS - 1
+#     except TypeError:
+#         MAX = True
+#
+#     @always(clk.posedge)
+#     def logic():
+#         if s:
+#             q.next = MAX
+#         else:
+#             q.next = d
+#
+#     return logic
+#
+#
+# @block
+# def dff_set_reset(clk, s, r, d, q):
 
-def latch(q, d, g):
+def latch(g, d, q):
 
     # The @always_comb doesn't mean the generator describes a circuit that is necessarily combinatorial,
     # but merely that it triggers whenever one of the input signals changes

@@ -2,22 +2,33 @@
 
 __author__ = 'michiel'
 
-from myhdl import Signal, instance, intbv, modbv, ResetSignal
+from myhdl import block, always_seq, intbv, modbv, Signal, ResetSignal
 
+__all__ = [
+    'EdgeDetect',
+    'create_signals',
+    'create_clock_reset',
+    'binarystring',
+]
 
-def EdgeDetect(din, pos_edge, neg_edge, clock, reset):
+@block
+def EdgeDetect(clock, reset, din, pos_edge, neg_edge, reset_active=1):
 
     prev_din = Signal(False)
 
-    @instance
-    def process():
-        while True:
-            yield clock.posedge, reset.posedge
-
-            if reset:
-                prev_din.next = False
-                pos_edge.next = False
-                neg_edge.next = False
+    if reset is None or isinstance(reset, ResetSignal):
+        @always_seq(clock.posedge, reset=reset)
+        def process():
+            pos_edge.next = din and not prev_din
+            neg_edge.next = not din and prev_din
+            prev_din.next = din
+    else:
+        @always(clock.posedge)
+        def process():
+            if reset == reset_active:
+                pos_edge.next = 0
+                neg_edge.next = 0
+                prev_din.next = 0
             else:
                 pos_edge.next = din and not prev_din
                 neg_edge.next = not din and prev_din
@@ -26,8 +37,13 @@ def EdgeDetect(din, pos_edge, neg_edge, clock, reset):
     return process
 
 
+def create_same_signals(nr_signals, example, delay=2):
+    return create_signals(nr_signals, example._nrbits, signed=(example.min < 0),
+                          mod=isinstance(example, modbv), delay=delay)
+
+
 def create_signals(nr_signals, bits=1, signed=False, enum=None, mod=False,
-                   delay=2):
+                   delay=2, default_value=None):
     """Create usable signals for MyHDL."""
     if enum is not None:
         if delay is not None:
@@ -37,12 +53,12 @@ def create_signals(nr_signals, bits=1, signed=False, enum=None, mod=False,
 
     def modOrInt(min, max, mod):
         if mod:
-            return modbv(0, min=min, max=max)
+            return modbv(0 if default_value is None else default_value, min=min, max=max)
         else:
-            return intbv(0, min=min, max=max)
+            return intbv(0 if default_value is None else default_value, min=min, max=max)
 
     if bits == 1:
-        default = False
+        default = False if default_value is None else default_value
     elif isinstance(bits, (tuple, list)):
         mini = bits[0]
         maxi = bits[1]
@@ -68,9 +84,14 @@ def create_signals(nr_signals, bits=1, signed=False, enum=None, mod=False,
             return Signal(default)
 
 
-def create_clock_reset(rst_value=True, rst_active=True, rst_async=False):
+def create_clock_reset_old(rst_value=True, rst_active=True, rst_async=False):
+    print("Warning: Don't use the ResetSignal as a precaution, the default values don't seem to work...")
     return Signal(False), ResetSignal(val=rst_value, active=rst_active,
                                       async=rst_async)
+
+
+def create_clock_reset(rst_active=1):
+    return Signal(False), Signal(bool(rst_active))
 
 
 def binarystring(signal, prefix="0b"):

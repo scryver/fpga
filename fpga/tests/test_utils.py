@@ -8,114 +8,118 @@ __author__ = 'michiel'
 import math
 import random
 import fpga.utils as utils
-from myhdl import always, instance, delay, StopSimulation, Simulation, traceSignals, bin
+from myhdl import block, always, instance, delay, StopSimulation, Simulation, traceSignals, bin
 
 
-def clocker(clock, half_cycle=10):
-    @always(delay(half_cycle))
-    def clock_generator():
-        clock.next = not clock
 
-    return clock_generator
+# NOTE(michiel): OLD CODE BELOW
+# def clocker(clock, half_cycle=10):
+#     @always(delay(half_cycle))
+#     def clock_generator():
+#         clock.next = not clock
+#
+#     return clock_generator
+#
+#
+# def clockdiv(edge, clockdivided, counter, cycles, single_pulse=False):
+#     """
+#
+#     :param edge:
+#     :param clockdivided:
+#     :param counter:
+#     :param cycles:
+#     :param single_pulse:     If True a single cycle pulse will be created, if False a clock with 50% duty cycle
+#     :return:
+#     """
+#     @always(edge)
+#     def clock_divider():
+#         if counter < cycles - 1:
+#             counter.next += 1
+#             if single_pulse:
+#                 clockdivided.next = False
+#         else:
+#             counter.next = 0
+#             if single_pulse:
+#                 clockdivided.next = True
+#             else:
+#                 clockdivided.next = not clockdivided
+#
+#     return clock_divider
+#
+#
+# def run_sim(bench, time_steps=None, trace=False, **kwargs):
+#     try:
+#         M = len(bench)
+#         benches = tuple(bench)
+#     except TypeError:
+#         M = 1
+#         benches = (bench, )
+#
+#     b = []
+#     if trace:
+#         for i in range(M):
+#             b.append(traceSignals(benches[i]))
+#     else:
+#         for i in range(M):
+#             b.append(benches[i](**kwargs))
+#
+#     if M == 1:
+#         s = Simulation(b[0])
+#     else:
+#         s = Simulation(tuple(b))
+#     s.run(time_steps)
+#
+#
+# def benchEdgeDetect(tests=100):
+#
+#     din, p_edge, n_edge, clock, reset = create_signals(5)
+#
+#     dut = utils.EdgeDetect(din, p_edge, n_edge, clock, reset)
+#
+#     clockgen = clocker(clock)
+#
+#     test_stream = []
+#     pos_stream = []
+#     neg_stream = []
+#
+#     for i in range(tests):
+#         try:
+#             prev_test = test_stream[i - 1]
+#         except IndexError:
+#             prev_test = False
+#
+#         current_test = random.randint(0, 1)
+#         p = bool(current_test and not prev_test)
+#         n = bool(not current_test and prev_test)
+#         test_stream.append(bool(current_test))
+#         pos_stream.append(p)
+#         neg_stream.append(n)
+#
+#     @instance
+#     def check():
+#         yield clock.negedge
+#         reset.next = False
+#
+#         for t, p, n in zip(test_stream, pos_stream, neg_stream):
+#             yield clock.negedge
+#             # print "t: %s, p: %s, n: %s" % (t, p, n)
+#             din.next = t
+#             yield clock.negedge
+#             # print "d: %s, p: %s, n: %s" % (din, p_edge, n_edge)
+#             assert p == p_edge
+#             assert n == n_edge
+#
+#         raise StopSimulation
+#
+#     return dut, clockgen, check
+#
+#
+# def test_bench():
+#     run_sim(benchEdgeDetect)
+# NOTE(michiel): END OLD CODE BELOW
 
 
-def clockdiv(edge, clockdivided, counter, cycles, single_pulse=False):
-    """
-
-    :param edge:
-    :param clockdivided:
-    :param counter:
-    :param cycles:
-    :param single_pulse:     If True a single cycle pulse will be created, if False a clock with 50% duty cycle
-    :return:
-    """
-    @always(edge)
-    def clock_divider():
-        if counter < cycles - 1:
-            counter.next += 1
-            if single_pulse:
-                clockdivided.next = False
-        else:
-            counter.next = 0
-            if single_pulse:
-                clockdivided.next = True
-            else:
-                clockdivided.next = not clockdivided
-
-    return clock_divider
-
-
-def run_sim(bench, time_steps=None, trace=False, **kwargs):
-    try:
-        M = len(bench)
-        benches = tuple(bench)
-    except TypeError:
-        M = 1
-        benches = (bench, )
-
-    b = []
-    if trace:
-        for i in range(M):
-            b.append(traceSignals(benches[i]))
-    else:
-        for i in range(M):
-            b.append(benches[i](**kwargs))
-
-    if M == 1:
-        s = Simulation(b[0])
-    else:
-        s = Simulation(tuple(b))
-    s.run(time_steps)
-
-
-def benchEdgeDetect(tests=100):
-
-    din, p_edge, n_edge, clock, reset = create_signals(5)
-
-    dut = utils.EdgeDetect(din, p_edge, n_edge, clock, reset)
-
-    clockgen = clocker(clock)
-
-    test_stream = []
-    pos_stream = []
-    neg_stream = []
-
-    for i in range(tests):
-        try:
-            prev_test = test_stream[i - 1]
-        except IndexError:
-            prev_test = False
-
-        current_test = random.randint(0, 1)
-        p = bool(current_test and not prev_test)
-        n = bool(not current_test and prev_test)
-        test_stream.append(bool(current_test))
-        pos_stream.append(p)
-        neg_stream.append(n)
-
-    @instance
-    def check():
-        yield clock.negedge
-        reset.next = False
-
-        for t, p, n in zip(test_stream, pos_stream, neg_stream):
-            yield clock.negedge
-            # print "t: %s, p: %s, n: %s" % (t, p, n)
-            din.next = t
-            yield clock.negedge
-            # print "d: %s, p: %s, n: %s" % (din, p_edge, n_edge)
-            assert p == p_edge
-            assert n == n_edge
-
-        raise StopSimulation
-
-    return dut, clockgen, check
-
-
-def test_bench():
-    run_sim(benchEdgeDetect)
-
-
+# NOTE(michiel): MAYBE USEFUL???
 def int_to_bit_list(number, bits=8, signed=None):
     if signed:
         assert -2 ** (bits - 1) <= number < 2 ** (bits - 1), \
@@ -201,6 +205,64 @@ def test_external_clocks(steps=211680, master_clk=21168000):
         return check_times, gen44, gen48
 
     run_sim(bench_clks, steps=steps, master_clk=master_clk)
+# NOTE(michiel): END MAYBE USEFUL???
+
+# NOTE(michiel): NEW CODE upgrade myhdl 1.0
+
+@block
+def generate_clock(clk, half_period=20):
+
+    @always(delay(half_period))
+    def clock_gen():
+        clk.next = not clk
+
+    return clock_gen
+
+
+@block
+def generate_clock_div(clk, divided, division=32):
+
+    counter = create_signals(1, division) #  Signal(intbv(0)[32:])
+
+    @always(clk.posedge)
+    def clock_gen():
+        counter.next = counter + 1
+        if counter >= division:
+            counter.next = counter - division
+            divided.next = not divided
+
+    return clock_gen
+
+
+@block
+def generate_clock_enable(clk, enable, division=32):
+
+    counter = create_signals(1, division) #  Signal(intbv(0)[32:])
+
+    @always(clk.negedge)
+    def clock_gen():
+        counter.next = counter + 1
+        enable.next = 0
+        if counter >= division:
+            counter.next = counter - division
+            enable.next = 1
+
+    return clock_gen
+
+
+@block
+def generate_reset(clk, rst, periods=3):
+
+    @instance
+    def reset_gen():
+        rst.next = 1
+        for i in range(periods):
+            yield clk.negedge
+        rst.next = 0
+        while True:
+            yield clk.negedge
+
+    return reset_gen
 
 
 if __name__ == '__main__':

@@ -2,10 +2,16 @@
 
 __author__ = 'michiel'
 
-from myhdl.conversion._toVHDL import _ToVHDLConvertor
+import myhdl.conversion._toVHDL as conv2vhdl
+
+from . import utils
+from . import basics
+
+from .utils import *
+from .basics import *
 
 
-class CustomVHDL(_ToVHDLConvertor):
+class CustomVHDL(conv2vhdl._ToVHDLConvertor):
 
     def __init__(self):
         super(CustomVHDL, self).__init__()
@@ -14,4 +20,6 @@ class CustomVHDL(_ToVHDLConvertor):
         self.numeric_ports = False
         self.std_logic_ports = True
 
-toVHDL = CustomVHDL()
+conv2vhdl.toVHDL = CustomVHDL()
+
+__all__ = utils.__all__ + basics.__all__
