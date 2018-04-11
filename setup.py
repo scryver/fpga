@@ -10,5 +10,5 @@ setup(name='fpga',
       version='0.1.1',
       description='FPGA modules for conversion to VHDL',
       author='Michiel',
-      install_requires=['myhdl>=1.0.dev0'],
+      install_requires=['myhdl>=0.10'],
       packages=['fpga', 'fpga.basics', 'fpga.encoders', 'fpga.generators', 'fpga.interfaces', 'fpga.tests'])
